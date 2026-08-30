@@ -22,6 +22,6 @@ class EvoLLMConfig:
 
     @property
     def head_dim(self):
-        assert self.hidden_size % self.num_heads == 0
-        return self.hidden_size // self.num_heads
+        assert self.hidden_size % self.num_attention_heads == 0
+        return self.hidden_size // self.num_attention_heads
     

@@ -31,7 +31,7 @@ class Attention(nn.Module):
         )
         causal_mask = torch.full((seq_len, seq_len), float("-inf"), device=hidden_states.device).triu(diagonal=1)
 
-        scores = (q @ k.transpose(1, 2)) / math.sqrt(self.head_dim)
+        scores = (q @ k.transpose(-1, -2)) / math.sqrt(self.head_dim)
         scores += causal_mask
         # (batch_size, num_head, seq_len, head_dim)
         output = self.attn_dropout(F.softmax(scores, dim=-1)) @ v
