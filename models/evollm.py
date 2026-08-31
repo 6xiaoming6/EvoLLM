@@ -4,28 +4,33 @@ import torch.nn.functional as F
 
 from models.modules.rms_norm import RMSNorm
 from configs.evollm_config import EvoLLMConfig
-from models.modules.attention import Attention
 from models.modules.feed_forward import FeedForward
 from models.modules.embedding_with_position import EmbeddingWithPosition
+from models.modules.attention import MultiHeadAttention, MultiLatentAttention
 
 class EvoLLMBlock(nn.Module):
     def __init__(self, cfg: EvoLLMConfig):
         super().__init__()
-        self.input_norm = RMSNorm(cfg)
-        self.attention = Attention(cfg)
-        self.post_attention_norm = RMSNorm(cfg)
+        self.input_norm = RMSNorm(cfg.hidden_size, cfg.rms_norm_eps)
+        if cfg.attention == 'mla':
+            self.attention = MultiLatentAttention(cfg)
+        else:
+            self.attention = MultiHeadAttention(cfg)
+        
+        self.post_attention_norm = RMSNorm(cfg.hidden_size, cfg.rms_norm_eps)
         self.ffn = FeedForward(cfg)
 
-    def forward(self, hidden_states):
+    def forward(self, hidden_states, past_key_value = None, use_cache = False):
         residual = hidden_states
         hidden_states = self.input_norm(hidden_states)
-        hidden_states = self.attention(hidden_states) + residual
+        hidden_states, present_key_value = self.attention(hidden_states, past_key_value, use_cache)
+        hidden_states += residual
 
         residual = hidden_states
         hidden_states = self.post_attention_norm(hidden_states)
         output = self.ffn(hidden_states) + residual
 
-        return output
+        return output, present_key_value
 
 
 class EvoLLMModel(nn.Module):
@@ -36,17 +41,32 @@ class EvoLLMModel(nn.Module):
             EvoLLMBlock(cfg) for i in range(cfg.num_hidden_layers)
         ])
         self.dropout = nn.Dropout(cfg.dropout_ratio)
-        self.norm = RMSNorm(cfg)
+        self.norm = RMSNorm(cfg.hidden_size, cfg.rms_norm_eps)
 
-    def forward(self, input_token_ids):
+        self.cfg = cfg
+
+    def forward(self, input_token_ids, past_key_values = None, use_cache = False):
         batch_size, seq_len = input_token_ids.shape
 
-        x = self.dropout(self.embedding(input_token_ids))
-        for layer in self.layers:
-            x = layer(x)
+        if self.cfg.attention == 'mla':
+            # mla存的形状是 (batch_size, seq_len, kv_lora_rank)
+            start_pos = past_key_values[0].shape[1] if past_key_values is not None else 0
+        else:
+            # gqa存的形状是 (batch_size, num_heads, seq_len, head_dim)
+            start_pos = past_key_values[0][0].shape[2] if past_key_values is not None else 0
+        past_key_values = past_key_values or [None] * len(self.layers)
+
+        x = self.dropout(self.embedding(input_token_ids, start_pos))
+
+        present_key_values = [] if use_cache else None
+        for layer, past_key_value in zip(self.layers, past_key_values):
+            x, present_key_value = layer(x, past_key_value, use_cache)
+            if use_cache:
+                present_key_values.append(present_key_value)
+        
         output = self.norm(x)
 
-        return output
+        return output, present_key_values
 
 
 class EvoLLMForCausalLM(nn.Module):
@@ -72,11 +92,11 @@ class EvoLLMForCausalLM(nn.Module):
         elif isinstance(module, nn.Embedding):
             nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
-    def forward(self, input_token_ids, labels = None):
+    def forward(self, input_token_ids, labels = None, past_key_values = None, use_cache = False):
         batch_size, seq_len = input_token_ids.shape
 
         #(bsz, seq_len, hidden_size)
-        hidden_states = self.model(input_token_ids)
+        hidden_states, present_key_values = self.model(input_token_ids, past_key_values, use_cache)
         #(bsz, seq_len, vocab_size)
         logits = self.lm_head(hidden_states)
 
@@ -94,5 +114,6 @@ class EvoLLMForCausalLM(nn.Module):
         return{
             "logits": logits,
             "loss": loss,
-            "hidden_states": hidden_states
+            "hidden_states": hidden_states,
+            "present_key_values": present_key_values
         }

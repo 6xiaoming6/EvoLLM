@@ -1,0 +1,51 @@
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+.eggs/
+build/
+dist/
+wheels/
+
+# ===== 虚拟环境 =====
+.venv/
+venv/
+env/
+ENV/
+
+# ===== 测试 / 缓存 =====
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ===== 模型权重 / 训练产物 =====
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.bin
+checkpoints/
+runs/
+outputs/
+lightning_logs/
+wandb/
+
+# ===== Jupyter =====
+.ipynb_checkpoints/
+
+# ===== IDE / 编辑器 =====
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ===== 日志 =====
+*.log
+
+# ===== 操作系统 =====
+.DS_Store
+Thumbs.db

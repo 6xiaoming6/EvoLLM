@@ -20,7 +20,7 @@ class EmbeddingWithPosition(nn.Module):
         pos_embed = precompute_position_embeddings(cfg.max_position_embeddings, self.dim)
         self.register_buffer("pos_embed", pos_embed)
 
-    def forward(self, input_token_ids):
+    def forward(self, input_token_ids, start_pos):
         batch_size, seq_len = input_token_ids.shape
-        return self.embedding(input_token_ids) + self.pos_embed[:seq_len, :]
+        return self.embedding(input_token_ids) + self.pos_embed[start_pos: start_pos + seq_len, :]
 

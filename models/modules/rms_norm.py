@@ -3,10 +3,10 @@ import torch.nn as nn
 from configs.evollm_config import EvoLLMConfig
 
 class RMSNorm(nn.Module):
-    def __init__(self, cfg: EvoLLMConfig):
+    def __init__(self, dim: int, eps: float):
         super().__init__()
-        self.dim = cfg.hidden_size
-        self.eps = cfg.rms_norm_eps
+        self.dim = dim
+        self.eps = eps
         self.weights = nn.Parameter(torch.ones(self.dim))
 
     def forward(self, x):
