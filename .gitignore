@@ -49,3 +49,10 @@ wandb/
 # ===== 操作系统 =====
 .DS_Store
 Thumbs.db
+
+# ====数据集====
+data/datasets/
+
+#====其他文件====
+EvoLLM_简历级项目目标任务清单.md
+学习笔记.md
