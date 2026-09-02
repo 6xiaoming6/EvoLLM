@@ -21,7 +21,8 @@ class EvoLLMConfig:
     vocab_size: int = 6400
     bos_token_id: int = 1
     eos_token_id: int = 2
-    max_position_embeddings: int = 2048
+    max_position_embeddings: int = 4096
+    rope_base: float = 10000.0
 
     tie_word_embeddings: bool = True
 

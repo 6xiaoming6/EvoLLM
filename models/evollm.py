@@ -5,8 +5,10 @@ import torch.nn.functional as F
 from models.modules.rms_norm import RMSNorm
 from configs.evollm_config import EvoLLMConfig
 from models.modules.feed_forward import FeedForward
-from models.modules.embedding_with_position import EmbeddingWithPosition
+from models.modules.embedding import Embedding
 from models.modules.attention import MultiHeadAttention, MultiLatentAttention
+from utils.utils import precompute_rope_freqs
+
 
 class EvoLLMBlock(nn.Module):
     def __init__(self, cfg: EvoLLMConfig):
@@ -20,10 +22,10 @@ class EvoLLMBlock(nn.Module):
         self.post_attention_norm = RMSNorm(cfg.hidden_size, cfg.rms_norm_eps)
         self.ffn = FeedForward(cfg)
 
-    def forward(self, hidden_states, past_key_value = None, use_cache = False):
+    def forward(self, hidden_states, position_embeddings = None, past_key_value = None, use_cache = False):
         residual = hidden_states
         hidden_states = self.input_norm(hidden_states)
-        hidden_states, present_key_value = self.attention(hidden_states, past_key_value, use_cache)
+        hidden_states, present_key_value = self.attention(hidden_states, position_embeddings, past_key_value, use_cache)
         hidden_states += residual
 
         residual = hidden_states
@@ -36,7 +38,7 @@ class EvoLLMBlock(nn.Module):
 class EvoLLMModel(nn.Module):
     def __init__(self, cfg: EvoLLMConfig):
         super().__init__()
-        self.embedding = EmbeddingWithPosition(cfg)
+        self.embedding = Embedding(cfg)
         self.layers = nn.ModuleList([
             EvoLLMBlock(cfg) for i in range(cfg.num_hidden_layers)
         ])
@@ -44,6 +46,10 @@ class EvoLLMModel(nn.Module):
         self.norm = RMSNorm(cfg.hidden_size, cfg.rms_norm_eps)
 
         self.cfg = cfg
+
+        sin, cos = precompute_rope_freqs(cfg.max_position_embeddings, cfg.rope_base, cfg.head_dim)
+        self.register_buffer("freqs_sin", sin)
+        self.register_buffer("freqs_cos", cos)
 
     def forward(self, input_token_ids, past_key_values = None, use_cache = False):
         batch_size, seq_len = input_token_ids.shape
@@ -56,11 +62,13 @@ class EvoLLMModel(nn.Module):
             start_pos = past_key_values[0][0].shape[2] if past_key_values is not None else 0
         past_key_values = past_key_values or [None] * len(self.layers)
 
-        x = self.dropout(self.embedding(input_token_ids, start_pos))
+        x = self.dropout(self.embedding(input_token_ids))
+
+        position_embeddings = (self.freqs_sin[start_pos: start_pos + seq_len], self.freqs_cos[start_pos: start_pos + seq_len])
 
         present_key_values = [] if use_cache else None
         for layer, past_key_value in zip(self.layers, past_key_values):
-            x, present_key_value = layer(x, past_key_value, use_cache)
+            x, present_key_value = layer(x, position_embeddings, past_key_value, use_cache)
             if use_cache:
                 present_key_values.append(present_key_value)
         
@@ -83,7 +91,8 @@ class EvoLLMForCausalLM(nn.Module):
         # 递归的给各层初始化参数权重
         self.apply(self._init_weights)
 
-    # 使用均值为 0、标准差为 0.02 的截断正态分布初始化权重
+
+    # 使用均值为 0、标准差为 0.02 的正态分布初始化权重
     def _init_weights(self, module):
         if isinstance(module, nn.Linear):
             nn.init.normal_(module.weight, mean=0.0, std=0.02)

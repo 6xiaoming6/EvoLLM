@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from utils.utils import repeat_kv
+from utils.utils import repeat_kv, apply_rope
 from models.modules.rms_norm import RMSNorm
 from configs.evollm_config import EvoLLMConfig
 
@@ -28,7 +28,7 @@ class MultiHeadAttention(nn.Module):
 
 
 
-    def forward(self, hidden_states, past_key_value = None, use_cache = False):
+    def forward(self, hidden_states, position_embeddings, past_key_value = None, use_cache = False):
         batch_size, seq_len, _ = hidden_states.shape
 
         # q:    (batch_size, seq_len, num_attention_heads * head_dim)
@@ -42,6 +42,8 @@ class MultiHeadAttention(nn.Module):
             k.view(batch_size, seq_len, self.num_kv_heads, self.head_dim).transpose(1, 2),
             v.view(batch_size, seq_len, self.num_kv_heads, self.head_dim).transpose(1, 2)
         )
+        freqs_sin, freqs_cos = position_embeddings
+        q, k = apply_rope(q, freqs_sin, freqs_cos), apply_rope(k, freqs_sin, freqs_cos)
 
         if past_key_value is not None:
             past_k, past_v = past_key_value
