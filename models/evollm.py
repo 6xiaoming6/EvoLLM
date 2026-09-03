@@ -14,10 +14,7 @@ class EvoLLMBlock(nn.Module):
     def __init__(self, cfg: EvoLLMConfig):
         super().__init__()
         self.input_norm = RMSNorm(cfg.hidden_size, cfg.rms_norm_eps)
-        if cfg.attention == 'mla':
-            self.attention = MultiLatentAttention(cfg)
-        else:
-            self.attention = MultiHeadAttention(cfg)
+        self.attention = MultiHeadAttention(cfg)
         
         self.post_attention_norm = RMSNorm(cfg.hidden_size, cfg.rms_norm_eps)
         self.ffn = FeedForward(cfg)
