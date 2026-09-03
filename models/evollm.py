@@ -5,8 +5,7 @@ import torch.nn.functional as F
 from models.modules.rms_norm import RMSNorm
 from configs.evollm_config import EvoLLMConfig
 from models.modules.feed_forward import FeedForward
-from models.modules.embedding import Embedding
-from models.modules.attention import MultiHeadAttention, MultiLatentAttention
+from models.modules.multi_head_attention import MultiHeadAttention
 from utils.utils import precompute_rope_freqs
 
 
@@ -35,7 +34,7 @@ class EvoLLMBlock(nn.Module):
 class EvoLLMModel(nn.Module):
     def __init__(self, cfg: EvoLLMConfig):
         super().__init__()
-        self.embedding = Embedding(cfg)
+        self.embedding = nn.Embedding(cfg.vocab_size, cfg.hidden_size)
         self.layers = nn.ModuleList([
             EvoLLMBlock(cfg) for i in range(cfg.num_hidden_layers)
         ])

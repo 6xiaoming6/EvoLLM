@@ -16,6 +16,9 @@ class EvoLLMConfig:
     # mla配置
     q_lora_rank: int = 128
     kv_lora_rank: int = 64
+    qk_nope_dim: int = 64
+    qk_rope_dim: int = 32
+    v_head_dim: int = 64
     # 词表大小
     vocab_size: int = 6400
     bos_token_id: int = 1
