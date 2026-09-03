@@ -13,7 +13,6 @@ class EvoLLMConfig:
     use_bias: bool = False
     dropout_ratio: float = 0.0
     rms_norm_eps: float = 1e-6
-    attention: Literal['mha', 'gqa', 'mqa', 'mla']  = 'mha' # 只有mla需要特殊处理，另外三个通过设置num_kv_heads即可
     # mla配置
     q_lora_rank: int = 128
     kv_lora_rank: int = 64

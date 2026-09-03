@@ -54,12 +54,8 @@ class EvoLLMModel(nn.Module):
     def forward(self, input_token_ids, past_key_values = None, use_cache = False):
         batch_size, seq_len = input_token_ids.shape
 
-        if self.cfg.attention == 'mla':
-            # mla存的形状是 (batch_size, seq_len, kv_lora_rank)
-            start_pos = past_key_values[0].shape[1] if past_key_values is not None else 0
-        else:
-            # gqa存的形状是 (batch_size, num_heads, seq_len, head_dim)
-            start_pos = past_key_values[0][0].shape[2] if past_key_values is not None else 0
+        # gqa存的形状是 (batch_size, num_heads, seq_len, head_dim)
+        start_pos = past_key_values[0][0].shape[2] if past_key_values is not None else 0
         past_key_values = past_key_values or [None] * len(self.layers)
 
         x = self.dropout(self.embedding(input_token_ids))
